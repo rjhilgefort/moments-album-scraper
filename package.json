@@ -1,0 +1,18 @@
+{
+  "name": "moments-scraper",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "./src/index.js",
+    "lint:fix": "prettier-standard 'src/**/*.js'"
+  },
+  "dependencies": {
+    "dotenv": "^6.0.0",
+    "omnibelt": "^1.2.0",
+    "puppeteer": "^1.6.1"
+  },
+  "devDependencies": {
+    "prettier-standard": "^8.0.1"
+  }
+}
