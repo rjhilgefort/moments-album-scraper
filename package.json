@@ -17,6 +17,7 @@
     "request-promise": "^4.2.2"
   },
   "devDependencies": {
-    "prettier-standard": "^8.0.1"
+    "prettier-standard": "^8.0.1",
+    "treis": "^2.6.0"
   }
 }
