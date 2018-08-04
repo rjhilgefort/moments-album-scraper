@@ -8,8 +8,9 @@ const fs = require('fs-extra')
 const { log } = console
 const { EMAIL, PASS, ALBUM } = process.env
 
-const stupidClone = _.compose(JSON.parse, JSON.stringify)
 const thenP = success => promise => promise.then(success)
+const mapIndexed = _.addIndex(_.map)
+const promiseAll = x => Promise.all(x)
 
 const main = async () => {
   const browser = await puppeteer.launch({ headless: false })
@@ -32,31 +33,35 @@ const main = async () => {
   await page.click(
     'body > div._2_kd > div:nth-child(2) > a > div > div > div._4599 > div._459a'
   )
-  const picSelector = '._10uj > ._10uk > ._10ul'
-  await page.waitFor(picSelector)
-  const picElements = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('._10uj > ._10uk > ._10ul')).map(x =>
-      JSON.parse(JSON.stringify(getComputedStyle(x)))
+  await page.waitFor('._10uj > ._10uk > ._10ul')
+
+  // Write all thumbnails
+  await page
+    .evaluate(() => {
+      const of = Array.from
+      const stupidClone = x => JSON.parse(JSON.stringify(x))
+      return of(document.querySelectorAll('._10uj > ._10uk > ._10ul')).map(x =>
+        stupidClone(getComputedStyle(x))
+      )
+    })
+    .then(
+      _.mapIndexed((val, i) =>
+        _.compose(
+          thenP(image =>
+            fs.writeFile(`output/COLORADO_${i}.jpg`, image, {
+              encoding: 'binary',
+              flag: 'w'
+            })
+          ),
+          url => request(url, { encoding: 'binary' }),
+          _.nth(1),
+          _.match(/^url\("(.*)"\)/),
+          _.prop('backgroundImage')
+        )(val)
+      )
     )
-  )
-  const mapIndexed = _.addIndex(_.map)
-  const foo = _.mapIndexed(
-    (val, i) =>
-      _.compose(
-        thenP(image =>
-          fs.writeFile(`output/COLORADO_${i}.jpg`, image, {
-            encoding: 'binary',
-            flag: 'w'
-          })
-        ),
-        (url) => request(url, { encoding: 'binary' }),
-        _.nth(1),
-        _.match(/^url\("(.*)"\)/),
-        _.prop('backgroundImage')
-      )(val),
-    picElements
-  )
-  await Promise.all(foo).then(() => console.log('done!'))
+    .then(promiseAll)
+    .then(() => console.log('done!'))
 
   browser.close()
 }
