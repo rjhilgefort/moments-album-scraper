@@ -1,81 +1,22 @@
-#!/usr/bin/env node
-
 // TODO:
 // - Search for album by text, spec it as an env var.
 // - Fix videa downloads. They aren't throwing an error, but they aren't coming down either.
-// - Organize out of single file
 
-
-require('dotenv').config()
-const puppeteer = require('puppeteer')
-const _ = require('omnibelt')
-const request = require('request-promise')
-const fs = require('fs-extra')
-const tr = require('treis')
+import dotenv from 'dotenv'
+dotenv.config()
+import puppeteer from 'puppeteer'
+import * as _ from 'omnibelt'
+import { requestBinary, writeFileBinary, promiseAll, sleepT } from './utils'
+import { makeMediaNameFactory, getUrlExtension } from './lib'
+import tr from 'treis'
 
 const { log } = console
 const { EMAIL, PASS, ALBUM } = process.env
-
-const request2 = _.curryN(2, request)
-const requestBinary = request2(_.__, { encoding: 'binary' })
-
-const writeFile3 = _.curryN(3, fs.writeFile)
-const writeFileBinary = writeFile3(_.__, _.__, {
-  encoding: 'binary',
-  flag: 'w'
+const makeMediaName = makeMediaNameFactory({
+  path: 'output',
+  initialNum: 0,
+  title: ALBUM
 })
-
-const thenP = success => promise => promise.then(success)
-const promiseAll = x => Promise.all(x)
-
-const sleepT = _.thunkify(_.sleep)
-const logT = _.thunkify(log)
-
-const getUrlExtension = _.compose(
-  _.trim,
-  _.last,
-  _.split('.'),
-  _.head,
-  _.split(/\#|\?/)
-)
-
-let count = 0
-const incCount = () => {
-  count += 1
-}
-const makeMediaName = _.compose(
-  _.tap(incCount),
-  x => `output/Colorado_${count}.${x}`,
-  getUrlExtension
-)
-
-const page$eval = async selector => page.$eval(selector, x => x.src).catch(_.always(null))
-
-const findMediaLink = async () => {
-  const currentMediaElement = elementType =>
-        `#u_0_0 > div > span > div._1or5 > ${elementType}:not(._1vez)`
-  const currentImage = () => currentMediaElement('img')
-  const currentVideo = () => `${currentMediaElement('span')} > img`
-
-  const imageSrc = await page$eval(currentImage())
-  if (_.isNotNil(imageSrc)) return imageSrc
-
-  const videoSrc = await page$eval(currentVideo())
-  if (_.isNotNil(videoSrc)) return videoSrc
-
-  throw new Error('Media could not be determined')
-}
-
-const downloadMedia = () => {
-  return findMediaLink()
-    .then(_.juxt([makeMediaName, requestBinary]))
-    .then(promiseAll)
-    .then(_.tap(_.apply(writeFileBinary)))
-    .then(([fileName]) => log(`downloaded image: ${fileName}`))
-    .then(sleepT(100))
-}
-
-const nextButtonSelector = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
 
 const main = async () => {
   const browser = await puppeteer.launch({ headless: false })
@@ -106,7 +47,34 @@ const main = async () => {
   await page.click('#u_0_6 > a > div')
   await page.waitFor('#u_0_0 > div > span > div._1or5 > img:not(._1vez)')
 
+  const page$eval = async selector =>
+    page.$eval(selector, x => x.src).catch(_.always(null))
+
+  const findMediaLink = async () => {
+    const currentMediaElement = elementType =>
+      `#u_0_0 > div > span > div._1or5 > ${elementType}:not(._1vez)`
+    const currentImage = () => currentMediaElement('img')
+    const currentVideo = () => `${currentMediaElement('span')} > img`
+
+    const imageSrc = await page$eval(currentImage())
+    if (_.isNotNil(imageSrc)) return imageSrc
+
+    const videoSrc = await page$eval(currentVideo())
+    if (_.isNotNil(videoSrc)) return videoSrc
+
+    throw new Error('Media could not be determined')
+  }
+
+  const downloadMedia = () => {
+    return findMediaLink()
+      .then(_.juxt([makeMediaName, requestBinary]))
+      .then(promiseAll)
+      .then(_.tap(_.apply(writeFileBinary)))
+      .then(([fileName]) => log(`downloaded image: ${fileName}`))
+      .then(sleepT(100))
+  }
   // Download first image, then keep downloading until there are no more
+  const nextButtonSelector = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
   await downloadMedia()
   while ((await page.$(nextButtonSelector)) !== null) {
     await page.click(nextButtonSelector)

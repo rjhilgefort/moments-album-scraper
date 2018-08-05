@@ -4,19 +4,28 @@
   "main": "src/index.js",
   "license": "MIT",
   "scripts": {
-    "start": "./src/index.js",
+    "clean": "rm -rf node_modules",
+    "reinstall": "yarn clean && yarn install",
+    "postinstall": "cp -n .env.example .env || true",
+    "start": "babel-node src/index.js",
+    "lint": "yarn lint:fix",
+    "lint:watch": "onchange '**/*.js' -i -- yarn lint",
     "lint:fix": "prettier-standard 'src/**/*.js'"
   },
   "dependencies": {
     "dotenv": "^6.0.0",
     "fs-extra": "^7.0.0",
-    "omnibelt": "^1.2.0",
+    "omnibelt": "Losant/omnibelt#feature/ts",
     "puppeteer": "^1.6.1",
     "ramda": "^0.25.0",
     "request": "^2.87.0",
     "request-promise": "^4.2.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.0.0-beta.56",
+    "@babel/node": "^7.0.0-beta.56",
+    "@babel/preset-env": "^7.0.0-beta.56",
+    "onchange": "^4.1.0",
     "prettier-standard": "^8.0.1",
     "treis": "^2.6.0"
   }
