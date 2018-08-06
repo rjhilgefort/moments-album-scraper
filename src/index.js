@@ -1,7 +1,3 @@
-// TODO:
-// - Search for album by text, spec it as an env var.
-// - Fix videa downloads. They aren't throwing an error, but they aren't coming down either.
-
 import dotenv from 'dotenv'
 dotenv.config()
 import puppeteer from 'puppeteer'
@@ -18,12 +14,17 @@ const makeMediaName = makeMediaNameFactory({
   title: ALBUM
 })
 
+// TODO: enum for elementType: img, video, span
+const lightboxElementByType = elementType =>
+  `#u_0_0 > div > span > div._1or5 > ${elementType}:not(._1vez)`
+const lightboxImageElement = lightboxElementByType('img')
+const lightboxVideoElement = `${lightboxElementByType('span')} > video`
+
 const main = async () => {
   const browser = await puppeteer.launch({ headless: false })
   const page = await browser.newPage()
 
   await page.goto('https://www.facebook.com/moments_app')
-  // await page.screenshot({ path: 'output/initial-load.png' })
 
   // login
   await page.click('#email')
@@ -32,7 +33,6 @@ const main = async () => {
   await page.keyboard.type(PASS)
   await page.click('#loginbutton')
   await page.waitForNavigation()
-  // await page.screenshot({ path: 'output/signed-in.png' })
 
   // click album
   // TODO: Find by title text
@@ -45,21 +45,16 @@ const main = async () => {
 
   // click the first picture and wait for load
   await page.click('#u_0_6 > a > div')
-  await page.waitFor('#u_0_0 > div > span > div._1or5 > img:not(._1vez)')
+  await page.waitFor(lightboxImageElement)
 
   const page$eval = async selector =>
     page.$eval(selector, x => x.src).catch(_.always(null))
 
   const findMediaLink = async () => {
-    const currentMediaElement = elementType =>
-      `#u_0_0 > div > span > div._1or5 > ${elementType}:not(._1vez)`
-    const currentImage = () => currentMediaElement('img')
-    const currentVideo = () => `${currentMediaElement('span')} > img`
-
-    const imageSrc = await page$eval(currentImage())
+    const imageSrc = await page$eval(lightboxImageElement)
     if (_.isNotNil(imageSrc)) return imageSrc
 
-    const videoSrc = await page$eval(currentVideo())
+    const videoSrc = await page$eval(lightboxVideoElement)
     if (_.isNotNil(videoSrc)) return videoSrc
 
     throw new Error('Media could not be determined')
@@ -70,9 +65,10 @@ const main = async () => {
       .then(_.juxt([makeMediaName, requestBinary]))
       .then(promiseAll)
       .then(_.tap(_.apply(writeFileBinary)))
-      .then(([fileName]) => log(`downloaded image: ${fileName}`))
+      .then(([fileName]) => log(`downloaded media: ${fileName}`))
       .then(sleepT(100))
   }
+
   // Download first image, then keep downloading until there are no more
   const nextButtonSelector = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
   await downloadMedia()
