@@ -29,6 +29,8 @@ After that, simply:
 yarn start
 ```
 
+The media will be downloaded to `./output`.
+
 # Variables
 
 Set these however you wish. The easiest way is to set them in `.env`.
