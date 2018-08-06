@@ -7,7 +7,7 @@ import { makeMediaNameFactory, getUrlExtension } from './lib'
 import tr from 'treis'
 
 const { log } = console
-const { EMAIL, PASS, ALBUM } = process.env
+const { HEADLESS, EMAIL, PASS, ALBUM } = process.env
 const makeMediaName = makeMediaNameFactory({
   path: 'output',
   initialNum: 0,
@@ -20,9 +20,25 @@ const lightboxElementByType = elementType =>
 const lightboxImageElement = lightboxElementByType('img')
 const lightboxVideoElement = `${lightboxElementByType('span')} > video`
 
+const ALBUM_TITLE_SELECTOR =
+  'body > div._2_kd > div._f6e > a._f6f > div._459f > div._s4n > div._4599 > div._459a'
+const LIGHTBOX_NEXT_BUTTON = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
+
+const defineVarOnPage = _.curry((page, name, value) =>
+  page.evaluateOnNewDocument(`
+    Object.defineProperty(window, '${name}', {
+      get() {
+        return '${value}'
+      }
+    })
+  `)
+)
+
 const main = async () => {
-  const browser = await puppeteer.launch({ headless: false })
+  const browser = await puppeteer.launch({ headless: _.stringToBoolean(HEADLESS) })
   const page = await browser.newPage()
+
+  await defineVarOnPage(page, 'ALBUM', ALBUM)
 
   await page.goto('https://www.facebook.com/moments_app')
 
@@ -34,13 +50,20 @@ const main = async () => {
   await page.click('#loginbutton')
   await page.waitForNavigation()
 
-  // click album
-  // TODO: Find by title text
-  await page.click(
-    'body > div._2_kd > div:nth-child(2) > a > div > div > div._4599 > div._459a'
-  )
+  // find album then click and wait for thumbnails
+  await page.$$eval(ALBUM_TITLE_SELECTOR, albums => {
+    const matchedAlbums = albums.filter(
+      album => album.innerText === window.ALBUM
+    )
+    if (matchedAlbums.length === 0) {
+      throw new Error(`No matching albums found with: "${window.ALBUM}"`)
+    }
+    if (matchedAlbums.length > 1) {
+      throw new Error(`Multiple albums found with: "${window.ALBUM}"`)
+    }
+    return matchedAlbums[0].click()
+  })
 
-  // wait for the thumbnails to show up
   await page.waitFor('._10uj > ._10uk > ._10ul')
 
   // click the first picture and wait for load
@@ -70,10 +93,9 @@ const main = async () => {
   }
 
   // Download first image, then keep downloading until there are no more
-  const nextButtonSelector = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
   await downloadMedia()
-  while ((await page.$(nextButtonSelector)) !== null) {
-    await page.click(nextButtonSelector)
+  while ((await page.$(LIGHTBOX_NEXT_BUTTON)) !== null) {
+    await page.click(LIGHTBOX_NEXT_BUTTON)
     await downloadMedia()
   }
 
