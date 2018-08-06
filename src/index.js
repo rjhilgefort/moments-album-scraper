@@ -4,10 +4,11 @@ import puppeteer from 'puppeteer'
 import * as _ from 'omnibelt'
 import { requestBinary, writeFileBinary, promiseAll, sleepT } from './utils'
 import { makeMediaNameFactory, getUrlExtension } from './lib'
-import tr from 'treis'
+import { defineVarOnPage } from './puppeteer'
 
 const { log } = console
 const { HEADLESS, EMAIL, PASS, ALBUM } = process.env
+
 const makeMediaName = makeMediaNameFactory({
   path: 'output',
   initialNum: 0,
@@ -24,18 +25,10 @@ const ALBUM_TITLE_SELECTOR =
   'body > div._2_kd > div._f6e > a._f6f > div._459f > div._s4n > div._4599 > div._459a'
 const LIGHTBOX_NEXT_BUTTON = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
 
-const defineVarOnPage = _.curry((page, name, value) =>
-  page.evaluateOnNewDocument(`
-    Object.defineProperty(window, '${name}', {
-      get() {
-        return '${value}'
-      }
-    })
-  `)
-)
-
 const main = async () => {
-  const browser = await puppeteer.launch({ headless: _.stringToBoolean(HEADLESS) })
+  const browser = await puppeteer.launch({
+    headless: _.stringToBoolean(HEADLESS)
+  })
   const page = await browser.newPage()
 
   await defineVarOnPage(page, 'ALBUM', ALBUM)

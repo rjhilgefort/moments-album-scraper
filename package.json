@@ -6,7 +6,7 @@
   "scripts": {
     "clean": "rm -rf node_modules",
     "reinstall": "yarn clean && yarn install",
-    "postinstall": "cp -n .env.example .env || true",
+    "postinstall": "cp -n .env-example .env || true",
     "start": "babel-node src/index.js",
     "lint": "yarn lint:fix",
     "lint:watch": "onchange '**/*.js' -i -- yarn lint",
@@ -17,7 +17,6 @@
     "fs-extra": "^7.0.0",
     "omnibelt": "Losant/omnibelt#feature/ts",
     "puppeteer": "^1.6.1",
-    "ramda": "^0.25.0",
     "request": "^2.87.0",
     "request-promise": "^4.2.2"
   },
