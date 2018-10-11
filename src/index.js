@@ -1,9 +1,16 @@
 import dotenv from 'dotenv'
 dotenv.config()
 import puppeteer from 'puppeteer'
-import * as _ from 'omnibelt'
-import { requestBinary, writeFileBinary, promiseAll, sleepT } from './utils'
-import { makeMediaNameFactory, getUrlExtension } from './lib'
+import { always, juxt, apply } from 'ramda'
+import {
+  promiseAll, sleepT, isNotNil, tap, stringToBoolean,
+} from './util'
+import {
+  requestBinary,
+  writeFileBinary,
+  makeMediaNameFactory,
+  getUrlExtension
+} from './lib'
 import { defineVarOnPage } from './puppeteer'
 
 const { log } = console
@@ -27,7 +34,7 @@ const LIGHTBOX_NEXT_BUTTON = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
 
 const main = async () => {
   const browser = await puppeteer.launch({
-    headless: _.stringToBoolean(HEADLESS)
+    headless: stringToBoolean(HEADLESS)
   })
   const page = await browser.newPage()
 
@@ -64,23 +71,23 @@ const main = async () => {
   await page.waitFor(lightboxImageElement)
 
   const page$eval = async selector =>
-    page.$eval(selector, x => x.src).catch(_.always(null))
+    page.$eval(selector, x => x.src).catch(always(null))
 
   const findMediaLink = async () => {
     const imageSrc = await page$eval(lightboxImageElement)
-    if (_.isNotNil(imageSrc)) return imageSrc
+    if (isNotNil(imageSrc)) return imageSrc
 
     const videoSrc = await page$eval(lightboxVideoElement)
-    if (_.isNotNil(videoSrc)) return videoSrc
+    if (isNotNil(videoSrc)) return videoSrc
 
     throw new Error('Media could not be determined')
   }
 
   const downloadMedia = () => {
     return findMediaLink()
-      .then(_.juxt([makeMediaName, requestBinary]))
+      .then(juxt([makeMediaName, requestBinary]))
       .then(promiseAll)
-      .then(_.tap(_.apply(writeFileBinary)))
+      .then(tap(apply(writeFileBinary)))
       .then(([fileName]) => log(`downloaded media: ${fileName}`))
       .then(sleepT(100))
   }
