@@ -1,11 +1,13 @@
 import dotenv from 'dotenv'
 dotenv.config()
 import puppeteer from 'puppeteer'
-import { always, juxt, apply } from 'ramda'
 import {
-  promiseAll, sleepT, isNotNil, tap, stringToBoolean,
-} from './util'
+  always, juxt, apply, evolve, compose, head, concat, replace, prop, __
+} from 'ramda'
+import { promiseAll, sleepT, isNotNil, tap, stringToBoolean } from './util'
 import {
+  path,
+  ensureDir,
   requestBinary,
   writeFileBinary,
   makeMediaNameFactory,
@@ -14,15 +16,22 @@ import {
 import { defineVarOnPage } from './puppeteer'
 
 const { log } = console
-const { HEADLESS, EMAIL, PASS, ALBUM } = process.env
+const ROOT_DIR = path.resolve2(__dirname, '..')
+
+// absoluteToRelative :: String -> Strinng
+const absoluteToRelative = replace(ROOT_DIR, '.')
+
+const { HEADLESS, EMAIL, PASS, ALBUM, OUTPUT_DIR } = evolve({
+  HEADLESS: stringToBoolean,
+  OUTPUT_DIR: path.join2(ROOT_DIR)
+})(process.env)
 
 const makeMediaName = makeMediaNameFactory({
-  path: 'output',
+  path: OUTPUT_DIR,
   initialNum: 0,
   title: ALBUM
 })
 
-// TODO: enum for elementType: img, video, span
 const lightboxElementByType = elementType =>
   `#u_0_0 > div > span > div._1or5 > ${elementType}:not(._1vez)`
 const lightboxImageElement = lightboxElementByType('img')
@@ -34,7 +43,7 @@ const LIGHTBOX_NEXT_BUTTON = '#u_0_0 > div > span > a._1or7._1or8 > div > div'
 
 const main = async () => {
   const browser = await puppeteer.launch({
-    headless: stringToBoolean(HEADLESS)
+    headless: HEADLESS
   })
   const page = await browser.newPage()
 
@@ -88,11 +97,27 @@ const main = async () => {
       .then(juxt([makeMediaName, requestBinary]))
       .then(promiseAll)
       .then(tap(apply(writeFileBinary)))
-      .then(([fileName]) => log(`downloaded media: ${fileName}`))
+      .then(
+        compose(
+          log,
+          concat("✅ 'downloadMedia': "),
+          absoluteToRelative,
+          head
+        )
+      )
       .then(sleepT(100))
+      .catch(
+        compose(
+          log,
+          concat("❌ 'downloadMedia': "),
+          absoluteToRelative,
+          prop('message')
+        )
+      )
   }
 
   // Download first image, then keep downloading until there are no more
+  await ensureDir(OUTPUT_DIR)
   await downloadMedia()
   while ((await page.$(LIGHTBOX_NEXT_BUTTON)) !== null) {
     await page.click(LIGHTBOX_NEXT_BUTTON)

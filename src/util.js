@@ -7,7 +7,7 @@ import {
   complement,
   pipe,
   flip,
-  contains,
+  contains
 } from 'ramda'
 
 export const thenP = success => promise => promise.then(success)
@@ -18,12 +18,12 @@ export const thunkify = curry((fn, value) => () => fn(value))
 
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
-export const tap = curry((fn, x) => {
-  fn(x)
+export const tap = curry(async (fn, x) => {
+  await fn(x)
   return x
 })
 
-export const equalsAny = flip(contains);
+export const equalsAny = flip(contains)
 
 export const stringToBoolean = pipe(
   defaultTo(''),
